@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $.Chart.Name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ $.Chart.Name }}
+  serviceName: {{ $.Chart.Name }}
+  replicas: {{ .Values.replicas }}
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: {{ $.Chart.Name }}
+    spec:
+      volumes:
+      - name: etcd-certs
+        secret:
+          defaultMode: 420
+          optional: false
+          secretName: etcd-client-certs
+      - name: backend-certs
+        secret:
+          defaultMode: 420
+          optional: false
+          secretName: backend-certs
+      initContainers:
+      - name: {{ $.Chart.Name }}-init
+        image: sensu/sensu:{{ $.Chart.AppVersion }}
+        command:
+        - /bin/sh
+        - -c
+        - |
+          sensu-backend init \
+          --etcd-trusted-ca-file=/var/lib/sensu/etcd-certs/ca.crt \
+          --etcd-cert-file=/var/lib/sensu/etcd-certs/cert.pem \
+          --etcd-key-file=/var/lib/sensu/etcd-certs/key.pem \
+          --etcd-client-urls=https://etcd.sensu-system.svc:2379
+          [[ $? -eq 1 ]] && return 1 || return 0
+        env:
+        - name: SENSU_BACKEND_CLUSTER_ADMIN_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: backend-secret
+              key: user
+        - name: SENSU_BACKEND_CLUSTER_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: backend-secret
+              key: password
+        volumeMounts:
+        - name: etcd-certs
+          mountPath: /var/lib/sensu/etcd-certs
+      containers:
+      - name: {{ $.Chart.Name }}
+        image: sensu/sensu:{{ $.Chart.AppVersion }}
+        command: [
+          "sensu-backend", "start",
+          "--log-level={{ .Values.sensu.logLevel }}",
+          "--no-embed-etcd",
+          "--etcd-trusted-ca-file=/var/lib/sensu/etcd-certs/ca.crt",
+          "--etcd-cert-file=/var/lib/sensu/etcd-certs/cert.pem",
+          "--etcd-key-file=/var/lib/sensu/etcd-certs/key.pem",
+          "--etcd-client-urls=https://etcd.sensu-system.svc:2379",
+          "--cert-file=/var/lib/sensu/certs/backend.pem",
+          "--key-file=/var/lib/sensu/certs/backend-key.pem",
+          "--trusted-ca-file=/var/lib/sensu/certs/ca.pem",
+          "--insecure-skip-tls-verify=true"
+        ]
+        readinessProbe:
+          exec:
+            command: ["/usr/bin/nc","-z","127.0.0.1","8080"]
+          failureThreshold: 3
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: SENSU_BACKEND_CLUSTER_ADMIN_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: backend-secret
+              key: user
+        - name: SENSU_BACKEND_CLUSTER_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: backend-secret
+              key: password
+        ports:
+        - protocol: TCP
+          containerPort: 8080
+        - protocol: TCP
+          containerPort: 8081
+        - protocol: TCP
+          containerPort: 3000
+        volumeMounts:
+        - name: etcd-certs
+          mountPath: /var/lib/sensu/etcd-certs
+        - name: backend-certs
+          mountPath: /var/lib/sensu/certs
+        resources:
+          requests:
+            memory: {{ .Values.sensu.requestMem }}
+            cpu: {{ .Values.sensu.requestCPU }}
+          limits:
+            memory: {{ .Values.sensu.limitMem }}
+            cpu: {{ .Values.sensu.limitCPU }}

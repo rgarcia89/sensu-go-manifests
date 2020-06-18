@@ -1,0 +1,15 @@
+# Default values for sensu.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+namespace: sensu-system
+replicas: 2
+
+sensu:
+  backendURL: wss://sensu-lb.sensu-system.svc:8081
+  namespace: yourSensuNamespace
+  subscriptions: daemonset daemonset_dev
+  deregister: true
+  logLevel: debug
+  skipTLSVerify: true
+  detectCloudProvider: true

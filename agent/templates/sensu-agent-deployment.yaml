@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $.Chart.Name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ $.Chart.Name }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: {{ $.Chart.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ $.Chart.Name }}
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - {{ $.Chart.Name }}
+              topologyKey: kubernetes.io/hostname
+      containers:
+      - name: {{ $.Chart.Name }}
+        image: sensu/sensu:{{ $.Chart.AppVersion }}
+        command: ["/opt/sensu/bin/sensu-agent", "start"]
+        env:
+        - name: SENSU_BACKEND_URL
+          value: "{{ .Values.sensu.backendURL }}"
+        - name: SENSU_NAMESPACE
+          value: "{{ .Values.sensu.namespace }}"
+        - name: SENSU_SUBSCRIPTIONS
+          value: "{{ .Values.sensu.subscriptions }}"
+        - name: SENSU_KEEPALIVE_INTERVAL
+          value: "20"
+        - name: SENSU_KEEPALIVE_WARNING_TIMEOUT
+          value: "60"
+        - name: SENSU_KEEPALIVE_CRITICAL_TIMEOUT
+          value: "180"
+        - name: SENSU_DEREGISTER
+          value: "{{ .Values.sensu.deregister }}"
+        - name: SENSU_LOG_LEVEL
+          value: "{{ .Values.sensu.logLevel }}"
+        - name: SENSU_STATSD_EVENT_HANDLERS
+          value: influxdb
+        - name: SENSU_INSECURE_SKIP_TLS_VERIFY
+          value: "{{ .Values.sensu.skipTLSVerify }}"
+        - name: SENSU_DETECT_CLOUD_PROVIDER
+          value: "{{ .Values.sensu.detectCloudProvider }}"
+        - name: SENSU_USER
+          valueFrom:
+            secretKeyRef:
+              name: agent-secret
+              key: user
+        - name: SENSU_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: agent-secret
+              key: password

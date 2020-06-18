@@ -1,0 +1,16 @@
+# Default values for sensu.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+namespace: sensu-system
+replicas: 2
+
+sensu:
+  nodePortApi: 30080
+  nodePortTransport: 30081
+  nodePortWebUI: 30000
+  logLevel: debug
+  requestMem: 2Gi
+  requestCPU: 1.0
+  limitMem: 4Gi
+  limitCPU: 4.0
