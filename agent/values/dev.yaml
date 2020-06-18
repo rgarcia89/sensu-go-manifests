@@ -13,3 +13,5 @@ sensu:
   logLevel: debug
   skipTLSVerify: true
   detectCloudProvider: true
+  agentUsername: agentUsername
+  agentUserPassword: agentPassword

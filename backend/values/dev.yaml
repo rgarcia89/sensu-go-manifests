@@ -14,3 +14,5 @@ sensu:
   requestCPU: 1.0
   limitMem: 4Gi
   limitCPU: 4.0
+  backendAdminUsername: adminUsername
+  backendAdminPassword: adminPassword
