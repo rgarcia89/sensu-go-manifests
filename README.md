@@ -1,5 +1,5 @@
 # sensu-go-manifests
-Everything you need to setup a sensu-go backend cluster that uses an external etcd. \
+Everything you need to setup a sensu-go backend cluster with external etcd. \
 The backend manifest expects you to secure etcd client and sensu backen API communication via TLS. \
 \
 Information about how to create the related certificates can be found here: \
