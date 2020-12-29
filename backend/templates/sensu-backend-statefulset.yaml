@@ -16,6 +16,18 @@ spec:
       labels:
         app: {{ $.Chart.Name }}
     spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 1
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - {{ $.Chart.Name }}
+              topologyKey: kubernetes.io/hostname
       volumes:
       - name: etcd-certs
         secret:
@@ -71,16 +83,29 @@ spec:
           "--insecure-skip-tls-verify=true"
         ]
         readinessProbe:
-          exec:
-            command: ["/usr/bin/nc","-z","127.0.0.1","8080"]
+          tcpSocket:
+            port: sensu-api
           failureThreshold: 3
-          initialDelaySeconds: 5
+          initialDelaySeconds: 10
           periodSeconds: 5
+        livenessProbe:
+          exec:
+            command:
+            - '/bin/sh'
+            - '-c'
+            - '/usr/bin/nc -z 127.0.0.1 8080'
+            - '&&'
+            - '/usr/bin/nc -z 127.0.0.1 3000'
+          failureThreshold: 3
+          initialDelaySeconds: 15
+          periodSeconds: 10
         env:
         - name: POD_NAME
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+        - name: SENSU_HOSTNAME #TODO workaround against "waiting for etcd log entries"
+          value: {{ .Values.etcdURL }}
         - name: SENSU_BACKEND_CLUSTER_ADMIN_USERNAME
           valueFrom:
             secretKeyRef:
@@ -92,11 +117,14 @@ spec:
               name: backend-secret
               key: password
         ports:
-        - protocol: TCP
+        - name: sensu-api
+          protocol: TCP
           containerPort: 8080
-        - protocol: TCP
+        - name: sensu-transport
+          protocol: TCP
           containerPort: 8081
-        - protocol: TCP
+        - name: sensu-webui
+          protocol: TCP
           containerPort: 3000
         volumeMounts:
         - name: etcd-certs
